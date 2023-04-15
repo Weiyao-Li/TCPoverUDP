@@ -1,0 +1,48 @@
+How it works:
+
+For tcpclient.py:
+
+This code is an implementation of a TCP client that sends a file to a server through a UDP connection using the Go-Back-N protocol.
+The program uses the struct and threading modules and includes the following functions:
+
+- calculate_checksum(packet): Calculates the checksum of a packet using the Internet checksum algorithm.
+- make_packet(seq_number, data, syn_flag, fin_flag, ack_flag): Creates a packet with the specified sequence number, data, and flags.
+- parse_acknowledgement(packet): Parses an acknowledgement packet and returns the acknowledgement number.
+- receive_acks(sock, acknowledged_seq_numbers): Runs in a separate thread and listens for incoming acknowledgement packets. Appends the acknowledgement number to the list of acknowledged sequence numbers.
+
+The main function takes five arguments from the command line:
+
+- file.txt: The file to be sent.
+- address_of_udpl: The IP address of the server.
+- port_number_of_udpl: The port number of the server.
+- window_size: The number of unacknowledged packets that can be sent at a time.
+- ack_port_number: The port number used to receive acknowledgement packets.
+
+The program then performs a three-way handshake with the server to establish a connection.
+Once the connection is established, the program sends the file data in chunks of maximum segment size (MSS), using the Go-Back-N protocol to handle lost or delayed packets.
+The program also waits for all data to be acknowledged and sends a FIN packet to close the connection.
+Finally, the program waits for the FIN ACK to be acknowledged before closing the socket and terminating.
+
+
+For tcpserver.py:
+This code is an implementation of a TCP server that receives a file from a client through a UDP connection using the Go-Back-N protocol.
+The program uses the struct module and includes the following functions:
+
+- calculate_checksum(packet): Calculates the checksum of a packet using the Internet checksum algorithm.
+- parse_packet(packet): Parses a packet and returns the sequence number and data.
+- make_acknowledgement(ack_number, syn_flag, fin_flag, ack_flag): Creates an acknowledgement packet with the specified acknowledgement number and flags.
+
+The main function takes four arguments from the command line:
+- file.txt: The name of the file to be received and saved.
+- listening_port: The port number the server listens to for incoming connections.
+- address_for_acks: The IP address of the client.
+- port_for_acks: The port number the client listens to for acknowledgement packets.
+
+The program then waits for a three-way handshake from the client to establish a connection.
+Once the connection is established, the server receives the file data in chunks of maximum segment size (MSS), using the Go-Back-N protocol to handle lost or delayed packets.
+The server also sends acknowledgement packets for each received packet and checks for the FIN flag to determine when the file transfer is complete.
+Once the transfer is complete, the program closes the socket and terminates.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Design Tradeoffs Considered and made:
+
