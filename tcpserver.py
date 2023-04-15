@@ -59,6 +59,8 @@ def main():
     received_data = {}
     expected_seq_number = syn_seq_number + 1
     fin_received = False
+    last_ack_number = -1
+    duplicate_ack_count = 0
 
     with open(filename, 'wb') as file:
         while not fin_received:
@@ -66,10 +68,15 @@ def main():
             seq_number, data = parse_packet(data_packet)
 
             if seq_number == expected_seq_number:
-                file.write(data)
+                received_data[seq_number] = data
                 expected_seq_number += len(data)
+                while expected_seq_number in received_data:
+                    file.write(received_data.pop(expected_seq_number))
+                    expected_seq_number += len(data)
+            elif seq_number > expected_seq_number:
+                received_data[seq_number] = data
 
-            ack_packet = make_acknowledgement(seq_number, 0, 0, 1)
+            ack_packet = make_acknowledgement(expected_seq_number - 1, 0, 0, 1)
             sock.sendto(ack_packet, (ack_address, ack_port))
 
             # Check for FIN flag

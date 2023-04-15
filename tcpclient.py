@@ -76,11 +76,25 @@ def main():
     with open(filename, 'rb') as file:
         data = file.read(MSS)
         seq_number = 1
-        while data:
-            data_packet = make_packet(seq_number, data, 0, 0, 0)
-            sock.sendto(data_packet, (emulator_address, emulator_port))
-            seq_number += len(data)
-            data = file.read
+        unacknowledged_packets = {}
+        while data or unacknowledged_packets:
+            while data and (seq_number < max(acknowledged_seq_numbers) + window_size):
+                data_packet = make_packet(seq_number, data, 0, 0, 0)
+                sock.sendto(data_packet, (emulator_address, emulator_port))
+                unacknowledged_packets[seq_number] = data_packet
+                seq_number += len(data)
+                data = file.read(MSS)
+
+            # Remove acknowledged
+            for ack_number in list(acknowledged_seq_numbers):
+                if ack_number in unacknowledged_packets:
+                    del unacknowledged_packets[ack_number]
+
+            # Resend unacknowledged packets
+            for seq_number, packet in unacknowledged_packets.items():
+                sock.sendto(packet, (emulator_address, emulator_port))
+
+            time.sleep(0.1)
 
     # Wait for all data to be acknowledged
     while seq_number not in acknowledged_seq_numbers:
