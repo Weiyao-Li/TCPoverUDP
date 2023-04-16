@@ -38,12 +38,12 @@ def make_acknowledgement(ack_number, syn_flag, fin_flag, ack_flag):
 # main
 def main():
     if len(sys.argv) != 5:
-        print("Usage: tcpserver.py <file.txt> <listening_port> <address_for_acks> <port_for_acks>")
+        print("Usage: tcpserver.py <file.txt> <listening_port> <address_of_udpl> <port_for_acks>")
         exit(1)
 
-    filename, listening_port, ack_address, ack_port = sys.argv[1:]
+    filename, listening_port, emulator_address, emulator_port = sys.argv[1:]
     listening_port = int(listening_port)
-    ack_port = int(ack_port)
+    emulator_port = int(emulator_port)
 
     # Initialize socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -53,7 +53,7 @@ def main():
     syn_packet, sender_address = sock.recvfrom(HEADER_SIZE)
     syn_seq_number, _ = parse_packet(syn_packet)
     ack_packet = make_acknowledgement(syn_seq_number, 1, 0, 1)
-    sock.sendto(ack_packet, (ack_address, ack_port))
+    sock.sendto(ack_packet, (emulator_address, emulator_port))  # Changed target address and port
 
     # Receive file.txt data
     received_data = {}
@@ -77,7 +77,7 @@ def main():
                 received_data[seq_number] = data
 
             ack_packet = make_acknowledgement(expected_seq_number - 1, 0, 0, 1)
-            sock.sendto(ack_packet, (ack_address, ack_port))
+            sock.sendto(ack_packet, (emulator_address, emulator_port))  # Changed target address and port
 
             # Check for FIN flag
             _, _, _, _, flags, _, _, _ = unpack('!HHIIHHHH', data_packet[:HEADER_SIZE])

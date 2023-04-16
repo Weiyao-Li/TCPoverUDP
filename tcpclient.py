@@ -59,6 +59,7 @@ def main():
 
     # Initialize socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    print(f"Binding to local port: {ack_port}")
     sock.bind(('', ack_port))
 
     # Perform three-way handshake
@@ -80,7 +81,7 @@ def main():
         while data or unacknowledged_packets:
             while data and (seq_number < max(acknowledged_seq_numbers) + window_size):
                 data_packet = make_packet(seq_number, data, 0, 0, 0)
-                sock.sendto(data_packet, (emulator_address, emulator_port))
+                sock.sendto(data_packet, (emulator_address, emulator_port))  # Changed target address and port
                 unacknowledged_packets[seq_number] = data_packet
                 seq_number += len(data)
                 data = file.read(MSS)
@@ -92,7 +93,7 @@ def main():
 
             # Resend unacknowledged packets
             for seq_number, packet in unacknowledged_packets.items():
-                sock.sendto(packet, (emulator_address, emulator_port))
+                sock.sendto(packet, (emulator_address, emulator_port))  # Changed target address and port
 
             time.sleep(0.1)
 
@@ -102,7 +103,7 @@ def main():
 
     # Send FIN request
     fin_packet = make_packet(seq_number, b'', 0, 1, 0)
-    sock.sendto(fin_packet, (emulator_address, emulator_port))
+    sock.sendto(fin_packet, (emulator_address, emulator_port))  # Changed target address and port
 
     # Wait for FIN ACK
     while seq_number not in acknowledged_seq_numbers:
