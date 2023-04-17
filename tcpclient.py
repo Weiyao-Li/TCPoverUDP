@@ -1,118 +1,67 @@
 import sys
 import socket
-from struct import pack, unpack
-import time
-import threading
-
-# Constants
-MSS = 576
-HEADER_SIZE = 20
 
 
-# Helper functions
-def calculate_checksum(packet):
-    total_words = len(packet) // 2
-    checksum = 0
-    for i in range(total_words):
-        word = (packet[i * 2] << 8) + packet[i * 2 + 1]
-        checksum += word
-        checksum = (checksum & 0xffff) + (checksum >> 16)
-    if len(packet) % 2:
-        checksum += packet[-1] << 8
-        checksum = (checksum & 0xffff) + (checksum >> 16)
-    return (~checksum) & 0xffff
+def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
+    # Read data from the file
+    with open(file_name, 'rb') as f:
+        data = f.read()
 
-
-def make_packet(seq_number, data, syn_flag, fin_flag, ack_flag):
-    data_length = len(data)
-    flags = (syn_flag << 1) + fin_flag + (ack_flag << 4)
-    packet = pack('!HHIIHHHH', 0, 0, seq_number, 0, (5 << 12) + flags, data_length, 0, 0)
-    packet += data
-    checksum = calculate_checksum(packet)
-    packet = pack('!HHIIHHHH', 0, 0, seq_number, 0, (5 << 12) + flags, data_length, checksum, 0)
-    packet += data
-    return packet
-
-
-def parse_acknowledgement(packet):
-    _, _, ack_number, _, _, _, _, _ = unpack('!HHIIHHHH', packet[:HEADER_SIZE])
-    return ack_number
-
-
-def receive_acks(sock, acknowledged_seq_numbers):
-    while True:
-        ack_packet, _ = sock.recvfrom(HEADER_SIZE)
-        ack_number = parse_acknowledgement(ack_packet)
-        acknowledged_seq_numbers.append(ack_number)
-
-
-# main
-def main():
-    if len(sys.argv) != 6:
-        print("Usage: tcpclient.py <file.txt> <address_of_udpl> <port_number_of_udpl> <window_size> <ack_port_number>")
-        exit(1)
-
-    filename, emulator_address, emulator_port, window_size, ack_port = sys.argv[1:]
-    emulator_port = int(emulator_port)
-    window_size = int(window_size)
-    ack_port = int(ack_port)
-
-    # Initialize socket
+    # Create a UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    print(f"Binding to local port: {ack_port}")
+
+    # Bind the socket to the ACK port
     sock.bind(('', ack_port))
 
-    # Perform three-way handshake
-    handshake_packet = make_packet(0, b'', 1, 0, 0)
-    sock.sendto(handshake_packet, (emulator_address, emulator_port))
+    # Set the initial sequence number and ACK number
+    seq_num = 0
+    ack_num = 0
 
-    acknowledged_seq_numbers = []
-    ack_receiver_thread = threading.Thread(target=receive_acks, args=(sock, acknowledged_seq_numbers))
-    ack_receiver_thread.start()
+    # Calculate the total size of the data to be sent
+    total_data_size = len(data)
 
-    while 0 not in acknowledged_seq_numbers:
-        time.sleep(0.1)
+    # Variables to control the FIN packet sending
+    fin_sent = False
+    fin_attempts = 0
+    max_fin_attempts = 5
 
-    # Send file.txt data
-    with open(filename, 'rb') as file:
-        data = file.read(MSS)
-        seq_number = 1
-        unacknowledged_packets = {}
-        while data or unacknowledged_packets:
-            while data and (seq_number < max(acknowledged_seq_numbers) + window_size):
-                data_packet = make_packet(seq_number, data, 0, 0, 0)
-                sock.sendto(data_packet, (emulator_address, emulator_port))  # Changed target address and port
-                unacknowledged_packets[seq_number] = data_packet
-                seq_number += len(data)
-                data = file.read(MSS)
+    # Main loop
+    while True:
+        # Send data while there is still data left to send and the sequence number is within the window
+        while seq_num < ack_num + window_size and seq_num < total_data_size:
+            # Send a packet with the sequence number and the data
+            packet = seq_num.to_bytes(4, byteorder='little') + data[seq_num:seq_num + 1020]
+            sock.sendto(packet, (emulator_ip, emulator_port))
+            seq_num += len(packet) - 4
 
-            # Remove acknowledged
-            for ack_number in list(acknowledged_seq_numbers):
-                if ack_number in unacknowledged_packets:
-                    del unacknowledged_packets[ack_number]
+        # Receive ACKs
+        try:
+            sock.settimeout(0.5)
+            ack_data, addr = sock.recvfrom(1024)
+            ack_num_received = int.from_bytes(ack_data, byteorder='little')
+            if ack_num_received > ack_num:
+                ack_num = ack_num_received
+        except socket.timeout:
+            pass
 
-            # Resend unacknowledged packets
-            for seq_number, packet in unacknowledged_packets.items():
-                sock.sendto(packet, (emulator_address, emulator_port))  # Changed target address and port
+        # Send FIN packet after all data has been acknowledged
+        if not fin_sent and ack_num == total_data_size:
+            if fin_attempts < max_fin_attempts:
+                sock.sendto(seq_num.to_bytes(4, byteorder='little') + b'FIN', (emulator_ip, emulator_port))
+                fin_attempts += 1
+            else:
+                print("Failed to send FIN packet after {} attempts, exiting.".format(max_fin_attempts))
+                break
 
-            time.sleep(0.1)
+        # Exit the loop when the server acknowledges the FIN packet
+        if ack_num == total_data_size + 4:
+            break
 
-    # Wait for all data to be acknowledged
-    while seq_number not in acknowledged_seq_numbers:
-        time.sleep(0.1)
-
-    # Send FIN request
-    fin_packet = make_packet(seq_number, b'', 0, 1, 0)
-    sock.sendto(fin_packet, (emulator_address, emulator_port))  # Changed target address and port
-
-    # Wait for FIN ACK
-    while seq_number not in acknowledged_seq_numbers:
-        time.sleep(0.1)
-
-    # Close the socket
     sock.close()
-    ack_receiver_thread.join()
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    if len(sys.argv) != 6:
+        print("Usage: python tcpclient.py file.txt emulator_ip emulator_port window_size ack_port")
+    else:
+        main(sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))
