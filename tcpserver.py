@@ -1,51 +1,51 @@
 import sys
 import socket
 
-
-def main(output_file, listen_port, emulator_ip, emulator_port):
-    # Create a UDP socket
+def main(file_name, listening_port, ack_ip, ack_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(('', listening_port))
 
-    # Bind the socket to the listening port
-    sock.bind(('', listen_port))
-
-    # Initialize the expected sequence number and the data buffer
+    # Buffer to store received data
+    recv_buffer = dict()
     expected_seq_num = 0
-    data_buffer = bytearray()
 
-    # Main loop
-    while True:
-        packet, addr = sock.recvfrom(1024)
-        seq_num = int.from_bytes(packet[:4], byteorder='little')
+    # Three-way handshake
+    handshake_done = False
+    while not handshake_done:
+        handshake_data, addr = sock.recvfrom(1024)
+        if handshake_data == expected_seq_num.to_bytes(4, byteorder='little') + b'SYN':
+            # Send SYN-ACK
+            sock.sendto(expected_seq_num.to_bytes(4, byteorder='little') + b'SYN-ACK', (ack_ip, ack_port))
+            try:
+                sock.settimeout(1)
+                ack_data, addr = sock.recvfrom(1024)
+                if ack_data == (expected_seq_num + 4).to_bytes(4, byteorder='little') + b'ACK':
+                    handshake_done = True
+            except socket.timeout:
+                pass
 
-        # Check if this is a FIN packet
-        if packet[4:] == b'FIN':
-            if seq_num == expected_seq_num:
-                # Acknowledge the FIN packet
-                sock.sendto(expected_seq_num.to_bytes(4, byteorder='little'), (emulator_ip, emulator_port))
+    with open(file_name, 'wb') as f:
+        while True:
+            data, addr = sock.recvfrom(1024)
+            seq_num = int.from_bytes(data[:4], byteorder='little')
+
+            if data[4:] == b'FIN':
+                expected_seq_num += 4
+                sock.sendto(expected_seq_num.to_bytes(4, byteorder='little'), (ack_ip, ack_port))
                 break
-            else:
-                # Discard the FIN packet and continue
-                continue
 
-        # Check if the packet's sequence number matches the expected sequence number
-        if seq_num == expected_seq_num:
-            # Add the data from the packet to the data buffer
-            data_buffer.extend(packet[4:])
-            expected_seq_num += len(packet) - 4
+            if seq_num == expected_seq_num:
+                recv_buffer[seq_num] = data[4:]
+                expected_seq_num += len(data) - 4
+                sock.sendto(expected_seq_num.to_bytes(4, byteorder='little'), (ack_ip, ack_port))
 
-        # Send an ACK with the expected sequence number
-        sock.sendto(expected_seq_num.to_bytes(4, byteorder='little'), (emulator_ip, emulator_port))
-
-    # Write the received data to the output file
-    with open(output_file, 'wb') as f:
-        f.write(data_buffer)
+            f.seek(seq_num)
+            f.write(recv_buffer[seq_num])
 
     sock.close()
 
-
 if __name__ == "__main__":
     if len(sys.argv) != 5:
-        print("Usage: python tcpserver.py output_file listen_port emulator_ip emulator_port")
+        print("Usage: python tcpserver.py file.txt listening_port ack_ip ack_port")
     else:
         main(sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4]))
