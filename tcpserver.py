@@ -1,6 +1,7 @@
 import sys
 import socket
 
+
 def main(output_file, listen_port, emulator_ip, emulator_port):
     # Create a UDP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -41,6 +42,7 @@ def main(output_file, listen_port, emulator_ip, emulator_port):
         f.write(data_buffer)
 
     sock.close()
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 5:
