@@ -1,5 +1,8 @@
 import sys
 import socket
+import logging
+
+logging.basicConfig(filename='server_error.log', level=logging.ERROR)
 
 def main(file_name, listening_port, ack_ip, ack_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -22,6 +25,7 @@ def main(file_name, listening_port, ack_ip, ack_port):
                 if ack_data == (expected_seq_num + 4).to_bytes(4, byteorder='little') + b'ACK':
                     handshake_done = True
             except socket.timeout:
+                logging.error("Timeout occurred during three-way handshake")
                 pass
 
     with open(file_name, 'wb') as f:

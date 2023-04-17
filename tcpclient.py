@@ -1,6 +1,9 @@
 import sys
 import socket
 import time
+import logging
+
+logging.basicConfig(filename='client_error.log', level=logging.ERROR)
 
 
 def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
@@ -31,6 +34,7 @@ def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
                 sock.sendto((seq_num + 4).to_bytes(4, byteorder='little') + b'ACK', (emulator_ip, emulator_port))
                 handshake_done = True
         except socket.timeout:
+            logging.error("Timeout occurred during three-way handshake")
             pass
 
     while True:
@@ -46,6 +50,7 @@ def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
             if ack_num_received > ack_num:
                 ack_num = ack_num_received
         except socket.timeout:
+            logging.error("Timeout occurred while waiting for ACK")
             pass
 
         if not fin_sent and ack_num == total_data_size:
@@ -53,6 +58,7 @@ def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
                 sock.sendto(seq_num.to_bytes(4, byteorder='little') + b'FIN', (emulator_ip, emulator_port))
                 fin_attempts += 1
             else:
+                logging.error("Failed to send FIN packet after {} attempts, exiting.".format(max_fin_attempts))
                 print("Failed to send FIN packet after {} attempts, exiting.".format(max_fin_attempts))
                 break
 
