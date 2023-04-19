@@ -8,20 +8,16 @@ To use this implementation, follow these steps:
 
 1. Run the UDP link emulator with the following command:
 
-**./newudpl -i localhost -o localhost -L 50**
+**./newudpl -p 2222:3333 -i 127.0.0.1:6666 -o 127.0.0.1:5555 -vv -L50**
 
-
-*This command starts the UDP link emulator with a simulated speed of 1000 kb/s, 50% random packet loss, and other default parameters. Adjust the parameters as needed for your testing.*
 
 <br>
 
 2. Start the TCP server with the following command:
 
 
-**python tcpserver.py received_file.txt 9000 localhost 9001**
+**python tcpserver.py output.txt 5555 127.0.0.1 6666**
 
-
-*This command starts the TCP server listening on port `9000` for incoming connections from clients. The server saves the received data to a file named `received_file.txt` and uses port `9001` to receive acknowledgments from the client.*
 
 <br>
 
@@ -29,15 +25,25 @@ To use this implementation, follow these steps:
 
 
 
-**python tcpclient.py file.txt 127.0.0.1 9000 512 9001**
+**python tcpclient.py file.txt 127.0.0.1 2222 512 6666**
 
 
-*This command starts the TCP client and sends the contents of the file `file.txt` to the server at IP address `127.0.0.1` (i.e., localhost) on port `9000`. The client uses a window size of `512` bytes and port number `9001` to receive acknowledgments from the server.*
 
 <br>
 
 Adjust the file names, IP addresses, port numbers, and other parameters as needed for your testing.
 
+## Submitted Files
 
+- descrition.txt: overall program design, a verbal description of how it works, design tradeoffs considered and made
+- tcpclient.py: Python code for the TCP client implementation
+- tcpserver.py: Python code for the TCP server implementation
+- client_error.log: Log file for client-side errors
+- server_error.log: Log file for server-side errors
+
+## Known Issues
+
+- The program does not support multi-threading for handling multiple client requests simultaneously.
+- The program does not support resuming an interrupted file transfer.
 
 

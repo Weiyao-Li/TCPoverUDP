@@ -1,15 +1,51 @@
-How it works:
+Description:
 
-For tcpclient.py:
+This project implements a simplified version of the TCP protocol using Python.
+There are two main components: tcpclient.py and tcpserver.py.
+Both the client and the server use the User Datagram Protocol (UDP) sockets to send and receive packets.
 
-TODO
+Here's an overview of the program design and how it works:
 
-For tcpserver.py:
+Three-way handshake:
+Both the client and server perform a three-way handshake to establish a connection.
+The client sends a SYN packet, and the server responds with a SYN-ACK packet.
+Finally, the client sends an ACK packet to complete the handshake.
 
-TODO
+Checksum calculation:
+The calculate_checksum function computes the checksum of the packet's payload to detect transmission errors.
+Both the client and server use this function to validate the integrity of received packets.
+
+Client-side implementation:
+The client reads the contents of the input file and sends it in chunks of up to 1016 bytes.
+The client maintains a sliding window based on the window size and acknowledges received packets.
+The client also manages timeouts and retransmissions for lost or unacknowledged packets.
+
+Server-side implementation:
+The server listens for incoming packets and stores them in a buffer.
+The server also validates the packet's checksum and checks the sequence number to ensure that the packets are in order.
+The server sends an ACK for every received packet, and it writes the received data to the output file.
+The server also handles the termination of the connection when it receives a FIN packet.
+
+Error handling and logging:
+Both the client and the server use Python's logging module to log errors, such as timeouts during the three-way handshake or failed attempts to send the FIN packet.
+
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Design Tradeoffs Considered and made:
+Design tradeoffs considered and made:
 
+Simplified TCP implementation:
+This project implements a simplified version of the TCP protocol, focusing on the basic features such as the three-way handshake, sliding window, and error detection.
+Advanced features, such as congestion control and flow control, are not implemented.
+
+Use of UDP sockets:
+The project uses UDP sockets to send and receive packets, which is a design choice that allows for manual control over packet transmissions and acknowledgments.
+This design choice simplifies the project, but it also requires implementing the reliability features of TCP on top of UDP.
+
+Checksum calculation: The implemented checksum calculation is a simple and effective way to detect transmission errors.
+However, it may not be as robust as the checksum algorithm used in the actual TCP protocol.
+
+Error handling and logging:
+The project uses a basic logging approach to record errors.
+In a more robust implementation, more advanced error handling and logging techniques could be employed to provide better visibility into the system's behavior and performance.
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Commands:
