@@ -5,6 +5,18 @@ import logging
 
 logging.basicConfig(filename='client_error.log', level=logging.ERROR)
 
+def calculate_checksum(header, data):
+    data_size = len(data)
+    if data_size % 2:
+        data += b'\x00'
+
+    checksum = 0
+    for i in range(0, data_size, 2):
+        checksum += (data[i] << 8) + data[i+1]
+
+    checksum = (checksum >> 16) + (checksum & 0xffff)
+    checksum += (checksum >> 16)
+    return (~checksum) & 0xffff
 
 def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
     with open(file_name, 'rb') as f:
@@ -39,9 +51,9 @@ def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
 
     while True:
         while seq_num < ack_num + window_size and seq_num < total_data_size:
-            packet = seq_num.to_bytes(4, byteorder='little') + data[seq_num:seq_num + 1020]
+            packet = seq_num.to_bytes(4, byteorder='little') + (calculate_checksum(b'', data[seq_num:seq_num + 1016])).to_bytes(2, byteorder='big') + data[seq_num:seq_num + 1016]
             sock.sendto(packet, (emulator_ip, emulator_port))
-            seq_num += len(packet) - 4
+            seq_num += len(packet) - 6
 
         try:
             sock.settimeout(0.5)
@@ -55,7 +67,7 @@ def main(file_name, emulator_ip, emulator_port, window_size, ack_port):
 
         if not fin_sent and ack_num == total_data_size:
             if fin_attempts < max_fin_attempts:
-                sock.sendto(seq_num.to_bytes(4, byteorder='little') + b'FIN', (emulator_ip, emulator_port))
+                sock.sendto(seq_num.to_bytes(4, byteorder='little') + (calculate_checksum(b'', b'FIN')).to_bytes(2, byteorder='big') + b'FIN', (emulator_ip, emulator_port))
                 fin_attempts += 1
             else:
                 logging.error("Failed to send FIN packet after {} attempts, exiting.".format(max_fin_attempts))
