@@ -51,7 +51,7 @@ In a more robust implementation, more advanced error handling and logging techni
 Commands:
 
 For the link emulator:
-./newudpl -p 2222:3333 -i 127.0.0.1:6666 -o 127.0.0.1:5555 -vv -L10
+./newudpl -p 2222:3333 -i 127.0.0.1:6666 -o 127.0.0.1:5555 -vv -L50
 
 For the server:
 python tcpserver.py output.txt 5555 127.0.0.1 6666
